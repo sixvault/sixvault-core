@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node app/index.js",
     "dev": "nodemon app/index.js",
-    "studio": "npx prisma studio",
+    "studio": "npx prisma studio --hostname 0.0.0.0 --browser none",
     "dev:all": "concurrently \"npm run dev\" \"npm run studio\""
   },
   "repository": {
