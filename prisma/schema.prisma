@@ -1,0 +1,76 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+    id              Int         @id @default(autoincrement())
+    nim_nip         String      @unique
+    nama            String
+    rsaPublicKey    String      @db.Text
+    type            UserType
+    prodi           ProdiType
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
+    mahasiswa       Mahasiswa?  @relation("UserToMahasiswa")
+    dosenWali       DosenWali?  @relation("UserToDosenWali")
+    kaprodi         Kaprodi?    @relation("UserToKaprodi")
+}
+
+model Mahasiswa {
+    id          Int         @id @default(autoincrement())
+    nim_nip     String      @unique
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+    user        User?       @relation("UserToMahasiswa", fields: [nim_nip], references: [nim_nip])
+}
+
+model DosenWali {
+    id          Int         @id @default(autoincrement())
+    nim_nip     String      @unique
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+    user        User?       @relation("UserToDosenWali", fields: [nim_nip], references: [nim_nip])
+}
+
+model Kaprodi {
+    id          Int         @id @default(autoincrement())
+    nim_nip     String      @unique
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+    user        User?       @relation("UserToKaprodi", fields: [nim_nip], references: [nim_nip])
+}
+
+model MataKuliah {
+    id          Int         @id @default(autoincrement())
+    nim         String     
+    kode        String
+    nama        String
+    sks         Int
+    nilai       NilaiType
+}
+
+enum UserType {
+    mahasiswa
+    dosen_wali
+    kaprodi
+    admin
+}
+
+enum ProdiType {
+    teknik_informatika
+    sistem_dan_teknologi_informasi
+}
+
+enum NilaiType {
+    A
+    AB
+    B
+    BC
+    C
+    D
+}

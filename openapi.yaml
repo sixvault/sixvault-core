@@ -1,0 +1,213 @@
+openapi: 3.0.0
+info:
+  title: Sixvault Core API
+  description: Sixvault is a secure, role-based academic transcript management system that integrates multi-cryptographic techniques—including AES encryption, RSA digital signatures, and Shamir's Secret Sharing—to protect the confidentiality, integrity, and authenticity of student data in a controlled, collaborative environment.
+  version: 1.0.0
+servers:
+  - url: https://api.sixvault.xyz
+    description: Production Server
+  - url: http://localhost:8080
+    description: Local Development Server
+paths:
+  /user/auth/register:
+    post:
+      summary: Register a new user
+      description: Register a new user with their RSA public key and role information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nim_nip
+                - type
+                - prodi
+                - rsaPublicKey
+                - nama
+              properties:
+                nim_nip:
+                  type: string
+                  description: NIM/NIP of the user
+                type:
+                  type: string
+                  enum: [mahasiswa, dosen_wali, kaprodi]
+                  description: Type of user
+                prodi:
+                  type: string
+                  enum: [teknik_informatika, sistem_dan_teknologi_informasi]
+                  description: Program studi of the user
+                rsaPublicKey:
+                  type: string
+                  description: RSA public key of the user
+                nama:
+                  type: string
+                  description: Full name of the user
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Registration successful
+                  data:
+                    type: object
+                    properties:
+                      nim_nip:
+                        type: string
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      encrypted_token_key:
+                        type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /user/auth/login:
+    post:
+      summary: Login user
+      description: Authenticate user and return encrypted tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nim_nip
+                - rsaPublicKey
+              properties:
+                nim_nip:
+                  type: string
+                  description: NIM/NIP of the user
+                rsaPublicKey:
+                  type: string
+                  description: RSA public key of the user
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Login successful
+                  data:
+                    type: object
+                    properties:
+                      nim_nip:
+                        type: string
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      encrypted_token_key:
+                        type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /user/auth/refresh-token:
+    get:
+      summary: Refresh access token
+      description: Get a new access token using the refresh token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refresh successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Token Refresh Success
+                  data:
+                    type: object
+                    properties:
+                      nim_nip:
+                        type: string
+                      access_token:
+                        type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /protected:
+    get:
+      summary: Protected route
+      description: Example of a protected route that requires authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successfully accessed protected route
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Protected route
+                  data:
+                    type: object
+                    properties:
+                      nim_nip:
+                        type: string
+                      type:
+                        type: string
+                      prodi:
+                        type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Bad Request
+        data:
+          type: object
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
