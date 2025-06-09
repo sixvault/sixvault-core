@@ -109,7 +109,7 @@ const register = async (req, res) => {
                 nim_nip: nim_nip,
                 access_token: encryptedAccessToken,
                 refresh_token: encryptedRefreshToken,
-                encrypted_token_key: rsa.encrypt(tokenKey, rsaPublicKey)
+                encrypted_token_key: rsa.encrypt(tokenKey, rsaPublicKey),
             }
         });
     } catch(err) {

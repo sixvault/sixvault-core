@@ -10,15 +10,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # sixvault-core:
-  #   build:
-  #     context: .
-  #   ports:
-  #     - "${PORT}:${PORT}"
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     - mysql
+  sixvault-core:
+    build:
+      context: .
+      args:
+        DATABASE_URL: postgresql://postgres:sixvault@postgres:5432/sixvault
+        JWT_ACCESS_SECRET: test
+        JWT_REFRESH_SECRET: test
+    ports:
+      - "3000:3000" 
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://postgres:sixvault@postgres:5432/sixvault
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:

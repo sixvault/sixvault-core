@@ -5,7 +5,13 @@ RUN npm install
 COPY . /app
 ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
+ARG JWT_ACCESS_SECRET
+ENV JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+ARG JWT_REFRESH_SECRET
+ENV JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+ARG PORT
+ENV PORT=3000
 RUN npx prisma generate
-RUN npx prisma migrate deploy
 EXPOSE 3000 5555
-CMD ["npx", "concurrently", "npm run start", "npm run studio"]
+COPY run.sh /app/run.sh
+ENTRYPOINT ["/app/run.sh"]

@@ -206,7 +206,8 @@ async function generateKeyPairFromSeed(seed, bits = 1024) {
 
 // RSA Encryption
 function encrypt(message, publicKeyBase64) {
-  const publicKey = JSON.parse(Buffer.from(publicKeyBase64, 'base64').toString());
+  const jsonString = Buffer.from(publicKeyBase64, 'base64').toString('utf8');
+  const publicKey = JSON.parse(jsonString);
   const e = bytesToLong(base64ToBytes(publicKey.e));
   const n = bytesToLong(base64ToBytes(publicKey.n));
   const messageBigInt = bytesToLong(Buffer.from(message));
@@ -216,7 +217,8 @@ function encrypt(message, publicKeyBase64) {
 
 // RSA Decryption
 function decrypt(encryptedMessage, privateKeyBase64) {
-  const privateKey = JSON.parse(Buffer.from(privateKeyBase64, 'base64').toString());
+  const jsonString = Buffer.from(privateKeyBase64, 'base64').toString('utf8');
+  const privateKey = JSON.parse(jsonString);
   const d = bytesToLong(base64ToBytes(privateKey.d));
   const n = bytesToLong(base64ToBytes(privateKey.n));
   const encryptedBigInt = bytesToLong(base64ToBytes(encryptedMessage));
