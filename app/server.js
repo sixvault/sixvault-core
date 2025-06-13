@@ -34,6 +34,9 @@ app.use("/student", studentRouter);
 const mkRouter = require("./domains/matakuliah/matakuliah.router");
 app.use("/matakuliah", mkRouter);
 
+const nilaiRouter = require("./domains/nilai/nilai.router");
+app.use("/nilai", nilaiRouter);
+
 // const serviceRouter = require('./domains/services/services.router');
 // app.use('/service', serviceRouter);
 

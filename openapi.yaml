@@ -253,12 +253,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /student/add:
+  /nilai/add:
     post:
-      summary: Add nilai entries
-      description: Adds an array of nilai records for mahasiswa users. Each record must include NIM, course code, course name, and grade.
+      summary: Add and encrypt daftar nilai
+      description: Adds a batch of nilai entries for students, encrypts them using AES, splits the AES key using Shamir’s Secret Sharing, and stores the shares across available dosen.
       tags:
-        - Student
+        - Nilai
       requestBody:
         required: true
         content:
@@ -272,22 +272,32 @@ paths:
                   - kode
                   - nama
                   - nilai
+                  - nip
                 properties:
                   nim:
                     type: string
+                    example: "10222069"
                     description: NIM of the student
                   kode:
                     type: string
+                    example: "MK123"
                     description: Course code
                   nama:
                     type: string
+                    example: "Dasar Pemrograman"
                     description: Course name
                   nilai:
                     type: string
-                    description: Grade
+                    enum: [A, AB, B, BC, C, D]
+                    example: A
+                    description: Grade of the student (NilaiType enum)
+                  nip:
+                    type: string
+                    example: "197812312019031002"
+                    description: NIP of the student's dosen wali
       responses:
         '200':
-          description: Nilai entries inserted
+          description: All valid nilai entries inserted and encrypted
           content:
             application/json:
               schema:
@@ -298,7 +308,7 @@ paths:
                     example: success
                   message:
                     type: string
-                    example: All valid nilai entries inserted
+                    example: All valid nilai entries inserted and encrypted
                   data:
                     type: object
                     properties:
@@ -306,12 +316,21 @@ paths:
                         type: integer
                         example: 5
         '400':
-          description: Bad request
+          description: Bad request or validation failure
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Request body must be a non-empty array of nilai entries
+                  data:
+                    type: object
+                    example: {}
   /student/search:
     post:
       summary: Search for a student
@@ -418,6 +437,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /nilai/decrypt:
+    post:
+      summary: Decrypt daftar nilai
+      description: Decrypts encrypted student data (nim, kode, nama, nilai) by reconstructing the AES key using Shamir's Secret Sharing.
+      tags:
+        - Nilai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - daftarNilaiId
+              properties:
+                daftarNilaiId:
+                  type: int
+                  example: 6
+      responses:
+        '200':
+          description: Successfully decrypted the data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Data decrypted successfully
+                  data:
+                    type: object
+                    properties:
+                      nim:
+                        type: string
+                        example: "10222069"
+                      kode:
+                        type: string
+                        example: "MK123"
+                      nama:
+                        type: string
+                        example: "Dasar Pemrograman"
+                      nilai:
+                        type: string
+                        example: "A"
+        '400':
+          description: Bad request (missing ID or not enough shares)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Missing daftarNilaiId in request body
+                  data:
+                    type: object
+                    example: {}
+        '404':
+          description: Daftar nilai not found
+        '500':
+          description: Internal server error
 
   /matakuliah/remove:
     post:
