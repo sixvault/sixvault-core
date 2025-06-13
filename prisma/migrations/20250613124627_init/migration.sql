@@ -54,13 +54,22 @@ CREATE TABLE "Kaprodi" (
 -- CreateTable
 CREATE TABLE "MataKuliah" (
     "id" SERIAL NOT NULL,
+    "kode" TEXT NOT NULL,
+    "matakuliah" TEXT NOT NULL,
+    "sks" INTEGER NOT NULL,
+
+    CONSTRAINT "MataKuliah_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DaftarNilai" (
+    "id" SERIAL NOT NULL,
     "nim" TEXT NOT NULL,
     "kode" TEXT NOT NULL,
     "nama" TEXT NOT NULL,
-    "sks" INTEGER NOT NULL,
     "nilai" "NilaiType" NOT NULL,
 
-    CONSTRAINT "MataKuliah_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "DaftarNilai_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -74,6 +83,9 @@ CREATE UNIQUE INDEX "DosenWali_nim_nip_key" ON "DosenWali"("nim_nip");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Kaprodi_nim_nip_key" ON "Kaprodi"("nim_nip");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MataKuliah_kode_key" ON "MataKuliah"("kode");
 
 -- AddForeignKey
 ALTER TABLE "Mahasiswa" ADD CONSTRAINT "Mahasiswa_nim_nip_fkey" FOREIGN KEY ("nim_nip") REFERENCES "User"("nim_nip") ON DELETE RESTRICT ON UPDATE CASCADE;
