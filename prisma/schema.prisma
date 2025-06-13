@@ -47,10 +47,16 @@ model Kaprodi {
 
 model MataKuliah {
     id          Int         @id @default(autoincrement())
-    nim         String     
+    kode        String      @unique
+    matakuliah  String
+    sks         Int
+}
+
+model DaftarNilai{
+    id          Int         @id @default(autoincrement())
+    nim         String
     kode        String
     nama        String
-    sks         Int
     nilai       NilaiType
 }
 
