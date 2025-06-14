@@ -166,6 +166,16 @@ const login = async (req, res) => {
             });
         }
 
+        if (rsaPublicKey != user.rsaPublicKey) {
+            return res.status(400).json({
+                status: "error",
+                message: process.env.DEBUG
+                    ? "NIM/NIP and rsaPublicKey doesn't match"
+                    : "Invalid Credentials",
+                data: {},
+            });
+        }
+
         const userTokenSign = {
             nim_nip: nim_nip,
             type: user.type,
@@ -189,6 +199,8 @@ const login = async (req, res) => {
             message: "Login successful",
             data: {
                 nim_nip: nim_nip,
+                type: user.type,
+                prodi: user.prodi,
                 access_token: encryptedAccessToken,
                 refresh_token: encryptedRefreshToken,
                 encrypted_token_key: rsa.encrypt(tokenKey, rsaPublicKey),
@@ -216,6 +228,28 @@ const refresh = async (req, res) => {
         message: "Token Refresh Success",
         data: {
             nim_nip: req.user.nim_nip,
+            type: req.user.type,
+            prodi: req.user.prodi,
+            access_token: signAccessToken(userTokenSign),
+            // refresh_token: signRefreshToken(userTokenSign)
+        },
+    });
+};
+
+const verify = async (req, res) => {
+    const userTokenSign = {
+        nim_nip: req.user.nim_nip,
+        type: req.user.type,
+        prodi: req.user.prodi,
+    };
+
+    return res.status(200).json({
+        status: "success",
+        message: "Verify auth Success",
+        data: {
+            nim_nip: req.user.nim_nip,
+            type: req.user.type,
+            prodi: req.user.prodi,
             access_token: signAccessToken(userTokenSign),
             // refresh_token: signRefreshToken(userTokenSign)
         },
@@ -226,4 +260,5 @@ module.exports = {
     register,
     login,
     refresh,
+    verify
 };

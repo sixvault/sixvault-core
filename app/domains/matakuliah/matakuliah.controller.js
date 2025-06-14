@@ -21,6 +21,7 @@ const add = async (req, res) => {
                 item.sks === undefined ||
                 item.sks === null
             ) {
+                console.log(item);
                 return res.status(400).json({
                     status: "error",
                     message:
@@ -34,9 +35,34 @@ const add = async (req, res) => {
             skipDuplicates: true,
         });
 
-        res.json({ status: "success", message: "Added matakuliah success" });
+        res.status(200).json({ 
+            status: "success", 
+            message: "Added matakuliah success" 
+        });
     } catch (err) {
-        res.status(500).json({ status: "error", message: err.message });
+        console.error(err);
+        res.status(500).json({ 
+            status: "error", 
+            message: err.message 
+        });
+    }
+};
+
+const list = async (req, res) => {
+    try {
+        const matakuliah = await prisma.mataKuliah.findMany();
+
+        res.status(200).json({ 
+            status: "success", 
+            message: "List matakuliah success",
+            data: matakuliah
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ 
+            status: "error", 
+            message: err.message 
+        });
     }
 };
 
@@ -64,6 +90,7 @@ const remove = async (req, res) => {
             message: `${deleted.count} matakuliah deleted`,
         });
     } catch (err) {
+        console.error(err);
         res.status(500).json({
             status: "error",
             message: err.message,
@@ -71,7 +98,10 @@ const remove = async (req, res) => {
     }
 };
 
+
+
 module.exports = {
     add,
+    list,
     remove,
 };

@@ -2,6 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const AES = require("../../utils/crypto/AES");
 const Shamir = require("../../utils/crypto/Shamir");
+const RSA = require("../../utils/crypto/RSA");
 const crypto = require("crypto");
 
 const aes = new AES();
@@ -102,6 +103,23 @@ const add_nilai = async (req, res) => {
                 },
             });
 
+            // Encrypt AES key with mahasiswa's RSA public key for self-decryption
+            const mahasiswaUser = await prisma.user.findUnique({
+                where: { nim_nip: nim },
+                select: { rsaPublicKey: true }
+            });
+
+            if (mahasiswaUser && mahasiswaUser.rsaPublicKey) {
+                const rsaEncryptedAesKey = RSA.encrypt(keyHex, mahasiswaUser.rsaPublicKey);
+                
+                await prisma.selfKey.create({
+                    data: {
+                        daftar_nilai_id: daftarNilai.id,
+                        rsa_encrypted_aes_key: rsaEncryptedAesKey,
+                    },
+                });
+            }
+
             const shares = shamir.generateShares(keyBigInt, totalDosen, 3);
 
             const shareRecords = dosenList.map((dosen, idx) =>
@@ -126,6 +144,70 @@ const add_nilai = async (req, res) => {
             message: "All valid nilai entries inserted and encrypted",
             data: {
                 count: insertedDaftarNilai.length,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(400).json({
+            status: "error",
+            message: process.env.DEBUG ? err.message : "Bad Request",
+            data: {},
+        });
+    }
+};
+
+const view_nilai = async (req, res) => {
+    try {
+        // Verify the user exists and is a mahasiswa
+        const user = await prisma.user.findUnique({
+            where: { nim_nip: req.user.nim_nip },
+        });
+
+        if (!user || user.type !== "mahasiswa") {
+            return res.status(400).json({
+                status: "error",
+                message: process.env.DEBUG
+                    ? `Invalid or non-mahasiswa user: ${req.user.nim_nip}`
+                    : "Unauthorized User",
+                data: {},
+            });
+        }
+
+        // Get all DaftarNilai records for this mahasiswa with their encrypted AES keys
+        const nilaiRecords = await prisma.daftarNilai.findMany({
+            where: { nim: req.user.nim_nip },
+            include: {
+                self_key: true,
+            },
+        });
+
+        if (nilaiRecords.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "No nilai records found for this mahasiswa",
+                data: {},
+            });
+        }
+
+        // Format the response to include encrypted data and encrypted AES keys
+        const formattedRecords = nilaiRecords.map((record) => ({
+            id: record.id,
+            nim: record.nim,
+            nip_dosen: record.nip_dosen,
+            encrypted_data: {
+                kode: record.kode,
+                nama: record.nama,
+                nilai: record.nilai,
+            },
+            rsa_encrypted_aes_key: record.self_key?.rsa_encrypted_aes_key || null,
+        }));
+
+        return res.status(200).json({
+            status: "success",
+            message: "Nilai records retrieved successfully",
+            data: {
+                count: formattedRecords.length,
+                records: formattedRecords,
             },
         });
     } catch (err) {
@@ -212,4 +294,5 @@ const decrypt_nilai = async (req, res) => {
 module.exports = {
     add_nilai,
     decrypt_nilai,
+    view_nilai,
 };

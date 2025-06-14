@@ -117,6 +117,12 @@ paths:
                     properties:
                       nim_nip:
                         type: string
+                      type:
+                        type: string
+                        enum: [mahasiswa, dosen_wali, kaprodi]
+                      prodi:
+                        type: string
+                        enum: [teknik_informatika, sistem_dan_teknologi_informasi]
                       access_token:
                         type: string
                       refresh_token:
@@ -156,6 +162,53 @@ paths:
                     properties:
                       nim_nip:
                         type: string
+                      type:
+                        type: string
+                        enum: [mahasiswa, dosen_wali, kaprodi]
+                      prodi:
+                        type: string
+                        enum: [teknik_informatika, sistem_dan_teknologi_informasi]
+                      access_token:
+                        type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /user/auth/verify:
+    get:
+      summary: Verify access token
+      description: Verify the user's access token and return a new access token
+      tags:
+        - User
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Verify auth Success
+                  data:
+                    type: object
+                    properties:
+                      nim_nip:
+                        type: string
+                      type:
+                        type: string
+                        enum: [mahasiswa, dosen_wali, kaprodi]
+                      prodi:
+                        type: string
+                        enum: [teknik_informatika, sistem_dan_teknologi_informasi]
                       access_token:
                         type: string
         '401':
@@ -256,7 +309,7 @@ paths:
   /nilai/add:
     post:
       summary: Add and encrypt daftar nilai
-      description: Adds a batch of nilai entries for students, encrypts them using AES, splits the AES key using Shamir’s Secret Sharing, and stores the shares across available dosen.
+      description: Adds a batch of nilai entries for students, encrypts them using AES, splits the AES key using Shamir's Secret Sharing, and stores the shares across available dosen.
       tags:
         - Nilai
       requestBody:
@@ -437,6 +490,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /matakuliah/list:
+    get:
+      summary: List all Mata Kuliah entries
+      description: Retrieve all Mata Kuliah entries from the database
+      tags:
+        - MataKuliah
+      responses:
+        '200':
+          description: Mata Kuliah entries retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: List matakuliah success
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kode:
+                          type: string
+                          example: IF3020
+                        matakuliah:
+                          type: string
+                          example: Pemrograman Web
+                        sks:
+                          type: integer
+                          example: 3
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
   /nilai/decrypt:
     post:
       summary: Decrypt daftar nilai
@@ -558,6 +657,98 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /nilai/view:
+    get:
+      summary: View mahasiswa's own nilai records
+      description: Allows a mahasiswa to view their own encrypted nilai data along with RSA-encrypted AES keys for client-side decryption. The mahasiswa is authenticated via JWT, and their NIM is taken from the JWT token (req.user.nim_nip).
+      tags:
+        - Nilai
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Nilai records retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Nilai records retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        example: 3
+                      records:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 1
+                            nim:
+                              type: string
+                              example: "10222069"
+                            nip_dosen:
+                              type: string
+                              example: "197812312019031002"
+                            encrypted_data:
+                              type: object
+                              properties:
+                                kode:
+                                  type: string
+                                  example: "encrypted_course_code"
+                                nama:
+                                  type: string
+                                  example: "encrypted_course_name"
+                                nilai:
+                                  type: string
+                                  example: "encrypted_grade"
+                            rsa_encrypted_aes_key:
+                              type: string
+                              example: "RSA_encrypted_AES_key_base64"
+                              description: RSA-encrypted AES key that can be decrypted by mahasiswa's private key
+        '400':
+          description: Bad request or unauthorized user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Unauthorized User
+                  data:
+                    type: object
+                    example: {}
+        '404':
+          description: No nilai records found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: No nilai records found for this mahasiswa
+                  data:
+                    type: object
+                    example: {}
+
 components:
   schemas:
     ErrorResponse:

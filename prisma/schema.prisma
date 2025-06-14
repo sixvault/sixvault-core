@@ -62,6 +62,7 @@ model DaftarNilai {
 
   shares          Share[]
   key_requests    KeyRequest[]
+  self_key        SelfKey?
 }
 
 model Share {
@@ -101,6 +102,16 @@ model Approval {
   @@unique([key_request_id, teacher_nip])
 }
 
+model SelfKey {
+  id                    Int          @id @default(autoincrement())
+  daftar_nilai_id       Int
+  rsa_encrypted_aes_key String       @db.Text
+  created_at            DateTime     @default(now())
+
+  daftar_nilai          DaftarNilai  @relation(fields: [daftar_nilai_id], references: [id])
+
+  @@unique([daftar_nilai_id])
+}
 
 enum UserType {
     mahasiswa
