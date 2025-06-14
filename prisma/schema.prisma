@@ -55,13 +55,12 @@ model MataKuliah {
 model DaftarNilai {
   id              Int          @id @default(autoincrement())
   nim             String
-  kode            String
+  kode            String       // encrypted
   nama            String
   nip_dosen       String
-  nilai           String       // Adjust if enum or JSON
+  nilai           String
 
   shares          Share[]
-  key_requests    KeyRequest[]
   self_key        SelfKey?
 }
 
@@ -72,34 +71,33 @@ model Share {
   share_index     Int
   share_value     String
   is_advisor      Boolean
-  is_accepted     Boolean
 
   daftar_nilai    DaftarNilai  @relation(fields: [daftar_nilai_id], references: [id])
-
-  @@unique([daftar_nilai_id, nip])
 }
 
 model KeyRequest {
   id              Int          @id @default(autoincrement())
-  daftar_nilai_id Int
+  nim             String
   requester_nip   String
   status          String       // "pending", "approved", etc.
   created_at      DateTime     @default(now())
 
-  daftar_nilai    DaftarNilai  @relation(fields: [daftar_nilai_id], references: [id])
   approvals       Approval[]
+
+  @@unique([nim, requester_nip])
 }
 
 model Approval {
   id              Int          @id @default(autoincrement())
-  key_request_id  Int
-  teacher_nip     String
+  request_id      Int
+  nim             String
+  nip             String
+  requester_nip   String
   approved        Boolean
   approved_at     DateTime     @default(now())
 
-  key_request     KeyRequest   @relation(fields: [key_request_id], references: [id])
-
-  @@unique([key_request_id, teacher_nip])
+  key_request     KeyRequest   @relation(fields: [request_id], references: [id])
+  @@unique([nim,requester_nip,nip])
 }
 
 model SelfKey {

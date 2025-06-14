@@ -106,12 +106,15 @@ const add_nilai = async (req, res) => {
             // Encrypt AES key with mahasiswa's RSA public key for self-decryption
             const mahasiswaUser = await prisma.user.findUnique({
                 where: { nim_nip: nim },
-                select: { rsaPublicKey: true }
+                select: { rsaPublicKey: true },
             });
 
             if (mahasiswaUser && mahasiswaUser.rsaPublicKey) {
-                const rsaEncryptedAesKey = RSA.encrypt(keyHex, mahasiswaUser.rsaPublicKey);
-                
+                const rsaEncryptedAesKey = RSA.encrypt(
+                    keyHex,
+                    mahasiswaUser.rsaPublicKey,
+                );
+
                 await prisma.selfKey.create({
                     data: {
                         daftar_nilai_id: daftarNilai.id,
@@ -130,7 +133,6 @@ const add_nilai = async (req, res) => {
                         share_index: Number(shares[idx][0]),
                         share_value: shares[idx][1].toString(),
                         is_advisor: dosen.nim_nip === dosenWali.nim_nip,
-                        is_accepted: false,
                     },
                 }),
             );
@@ -199,7 +201,8 @@ const view_nilai = async (req, res) => {
                 nama: record.nama,
                 nilai: record.nilai,
             },
-            rsa_encrypted_aes_key: record.self_key?.rsa_encrypted_aes_key || null,
+            rsa_encrypted_aes_key:
+                record.self_key?.rsa_encrypted_aes_key || null,
         }));
 
         return res.status(200).json({
@@ -291,8 +294,253 @@ const decrypt_nilai = async (req, res) => {
     }
 };
 
+const request_list = async (req, res) => {
+    const requests = await prisma.keyRequest.findMany({
+        where: { status: "pending" },
+        include: {
+            approvals: true,
+            daftar_nilai: true,
+        },
+    });
+
+    res.json(requests);
+};
+
+const request_approve = async (req, res) => {
+    const { nim, requester_nip, nip } = req.body;
+
+    const existingUser = await prisma.user.findUnique({
+        where: { nim_nip: nip },
+    });
+
+    if (!existingUser) {
+        return res.status(400).json({
+            status: "error",
+            message: process.env.DEBUG
+                ? "User not Found"
+                : "Invalid Credentials",
+        });
+    }
+
+    try {
+        // Search for spesific request
+
+        const request_key = await prisma.keyRequest.findUnique({
+            where: {
+                nim_requester_nip: {
+                    nim: nim,
+                    requester_nip: requester_nip,
+                },
+            },
+        });
+
+        if (!request_key) {
+            return res.status(400).json({
+                status: "error",
+                message: process.env.DEBUG
+                    ? "Request Not Found"
+                    : "Invalid Request",
+            });
+        }
+
+        const approval = await prisma.approval.create({
+            data: {
+                request_id: request_key.id,
+                nim,
+                nip,
+                requester_nip,
+                approved: true,
+            },
+        });
+
+        // Count how many teachers approved this request
+        const approvalCount = await prisma.approval.count({
+            where: {
+                request_id: request_key.id,
+                approved: true,
+            },
+        });
+
+        const threshold = 3; // example threshold
+
+        // If enough approvals collected, update KeyRequest status
+        if (approvalCount >= threshold) {
+            await prisma.keyRequest.update({
+                where: { id: request_key.id },
+                data: {
+                    status: "approved",
+                },
+            });
+        }
+
+        return res.json({
+            message: "Approval recorded",
+            approval,
+        });
+    } catch (error) {
+        if (error.code === "P2002") {
+            return res
+                .status(400)
+                .json({ error: "Already approved by this teacher" });
+        }
+
+        console.error(error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+const request_show = async (req, res) => {
+    const { teacher_nip } = req.query;
+
+    if (!teacher_nip) {
+        return res.status(400).json({ error: "Missing teacher_nip in query" });
+    }
+
+    try {
+        const requests = await prisma.keyRequest.findMany({
+            where: {
+                requester_nip: teacher_nip,
+            },
+            include: {
+                daftar_nilai: true,
+                approvals: true,
+            },
+            orderBy: {
+                created_at: "desc",
+            },
+        });
+
+        const result = [];
+
+        for (const req of requests) {
+            const { status, approvals, daftar_nilai } = req;
+
+            let includeNilai = false;
+            let decryptedData = null;
+
+            if (status === "approved" && daftar_nilai) {
+                const dosenWaliNip = daftar_nilai.nip_dosen;
+
+                // ✅ Check if dosen wali has approved
+                const waliApproved = approvals.some(
+                    (a) =>
+                        a.teacher_nip === dosenWaliNip && a.approved === true,
+                );
+
+                // ✅ Get all NIPs of teachers who approved
+                const approvedTeacherNips = approvals
+                    .filter((a) => a.approved)
+                    .map((a) => a.teacher_nip);
+
+                // ✅ Fetch shares for only those teachers
+                const shares = await prisma.share.findMany({
+                    where: {
+                        nip: { in: approvedTeacherNips },
+                        daftar_nilai_id: daftar_nilai.id,
+                    },
+                });
+
+                console.log("Shares: ", shares);
+
+                console.log(approvedTeacherNips);
+
+                if (waliApproved && shares.length >= 3) {
+                    try {
+                        const formattedShares = shares.map((s) => [
+                            BigInt(s.share_index),
+                            BigInt(s.share_value),
+                        ]);
+
+                        const aesKey =
+                            shamir.reconstructSecret(formattedShares);
+                        const aesKeyHex = aesKey.toString(16).padStart(32, "0");
+
+                        decryptedData = aes.decrypt(
+                            daftar_nilai.encrypted_data,
+                            aesKeyHex,
+                        );
+
+                        console.log("Formatted shares:", formattedShares);
+                        console.log("Reconstructed AES key:", aesKeyHex);
+                        console.log("Data:", decryptedData);
+
+                        includeNilai = true;
+                    } catch (decryptionError) {
+                        console.warn(
+                            "Failed to decrypt for request ID",
+                            req.id,
+                        );
+                    }
+                }
+            }
+
+            result.push({
+                key_request_id: req.id,
+                daftar_nilai_id: req.daftar_nilai_id,
+                status: req.status,
+                created_at: req.created_at,
+                approvals_count: approvals.filter((a) => a.approved).length,
+                shares: approvals.map((a) => ({
+                    teacher_nip: a.teacher_nip,
+                    approved: a.approved,
+                    approved_at: a.approved_at,
+                })),
+                daftar_nilai: daftar_nilai
+                    ? {
+                          ...daftar_nilai,
+                          decrypted_data: includeNilai ? decryptedData : null,
+                      }
+                    : null,
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        console.error("Error in request_show:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+const request_nilai = async (req, res) => {
+    const { nim, requester_nip } = req.body;
+
+    if (!nim || !requester_nip) {
+        return res.status(400).json({
+            status: "error",
+            message: 'Each entry must include "nim" and "requester_nip"',
+            data: {},
+        });
+    }
+
+    const existing = await prisma.keyRequest.findFirst({
+        where: {
+            nim,
+            requester_nip,
+            status: "pending",
+        },
+    });
+
+    if (existing) {
+        return res.status(400).json({ error: "Request already exists" });
+    }
+
+    const request = await prisma.keyRequest.create({
+        data: {
+            nim,
+            requester_nip,
+            status: "pending",
+        },
+    });
+
+    res.json(request);
+};
+
 module.exports = {
     add_nilai,
     decrypt_nilai,
     view_nilai,
+    request_nilai,
+    request_list,
+    request_approve,
+    request_show,
 };

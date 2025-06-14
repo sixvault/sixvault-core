@@ -9,7 +9,6 @@ const search = async (req, res) => {
             return res.status(400).json({
                 status: "error",
                 message: 'Parameter "nim" required!',
-                data: {},
             });
         }
 
@@ -23,7 +22,6 @@ const search = async (req, res) => {
                 message: process.env.DEBUG
                     ? "User not Found"
                     : "Invalid Credentials",
-                data: {},
             });
         }
 
@@ -33,7 +31,6 @@ const search = async (req, res) => {
                 message: process.env.DEBUG
                     ? "User Error"
                     : "Invalid Type of User",
-                data: {},
             });
         }
 
@@ -49,7 +46,6 @@ const search = async (req, res) => {
         return res.status(400).json({
             status: "error",
             message: process.env.DEBUG ? err.message : "Bad Request",
-            data: {},
         });
     }
 };
