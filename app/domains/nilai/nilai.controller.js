@@ -240,11 +240,110 @@ const view_nilai = async (req, res) => {
             }
         }
 
-        if (!hasPermission) {
-            return res.status(403).json({
-                status: "error",
-                message: process.env.DEBUG ? errorMessage : "Unauthorized",
-                data: {},
+        if (!hasPermission && authenticatedUser.type == "dosen_wali") {
+            // Check if there's an approved KeyRequest for this nim and requester
+            const approvedRequest = await prisma.keyRequest.findFirst({
+                where: {
+                    nim: nim_nip,
+                    requester_nip: authenticatedUser.nim_nip,
+                    status: "approved",
+                },
+                include: {
+                    approvals: true,
+                },
+            });
+
+            if (!approvedRequest) {
+                // If no approved request, return the request message
+                return res.status(200).json({
+                    status: "success",
+                    message: "You are not authorized to view this data. Request for group based decryption to access this data.",
+                    data: {},
+                });
+            }
+
+            // If approved request exists, implement group-based decryption
+            const mahasiswa = await prisma.mahasiswa.findFirst({
+                where: { nim_nip: nim_nip },
+            });
+
+            if (!mahasiswa) {
+                return res.status(400).json({
+                    status: "error",
+                    message: "Mahasiswa not found",
+                    data: {},
+                });
+            }
+
+            // Check if wali approved the request
+            const waliApproved = approvedRequest.approvals.some(
+                (a) => a.nip === mahasiswa.nim_nip_dosen_wali && a.approved === true
+            );
+
+            if (!waliApproved) {
+                return res.status(403).json({
+                    status: "error",
+                    message: "Access denied. Request not approved by dosen wali",
+                    data: {},
+                });
+            }
+
+            const approvedTeacherNips = approvedRequest.approvals
+                .filter((a) => a.approved)
+                .map((a) => a.nip);
+
+            // Get all nilai for this mahasiswa with shares from approved teachers
+            const allNilai = await prisma.daftarNilai.findMany({
+                where: {
+                    nim: nim_nip,
+                    nip_dosen: mahasiswa.nim_nip_dosen_wali,
+                },
+                include: {
+                    shares: {
+                        where: {
+                            nip: { in: approvedTeacherNips },
+                        },
+                    },
+                },
+            });
+
+            const decryptedRecords = [];
+
+            for (const n of allNilai) {
+                if (waliApproved && n.shares.length >= 3) {
+                    try {
+                        const formattedShares = n.shares.map((s) => [
+                            BigInt(s.share_index),
+                            BigInt(s.share_value),
+                        ]);
+
+                        const aesKey = shamir.reconstructSecret(formattedShares);
+                        const aesKeyHex = aesKey.toString(16).padStart(32, "0");
+
+                        const decryptedData = {
+                            id: n.id,
+                            nim: n.nim,
+                            nip_dosen: n.nip_dosen,
+                            kode: aes.decrypt(n.kode, aesKeyHex),
+                            nama: aes.decrypt(n.nama, aesKeyHex),
+                            nilai: aes.decrypt(n.nilai, aesKeyHex),
+                        };
+
+                        decryptedRecords.push(decryptedData);
+                    } catch (decryptionError) {
+                        console.warn("Failed to decrypt nilai with ID", n.id, ":", decryptionError);
+                        // Skip this record and continue with others
+                    }
+                }
+            }
+
+            return res.status(200).json({
+                status: "success",
+                message: "Nilai records decrypted successfully using group-based decryption",
+                data: {
+                    count: decryptedRecords.length,
+                    records: decryptedRecords,
+                },
             });
         }
 
@@ -401,7 +500,6 @@ const decrypt_nilai = async (req, res) => {
 
 const request_list = async (req, res) => {
     const requests = await prisma.keyRequest.findMany({
-        where: { status: "pending" },
         include: {
             approvals: true,
         },
@@ -684,6 +782,98 @@ const request_nilai = async (req, res) => {
     res.json(request);
 };
 
+const sign_nilai = async (req, res) => {
+    try {
+        if (req.user.type !== "kaprodi") {
+            return res.status(403).json({
+                status: "error",
+                message: "Unauthorized",
+            });
+        }
+        
+        const { nim, signature } = req.body;
+
+        if (!nim || !signature) {
+            return res.status(400).json({
+                status: "error",
+                message: 'Both "nim" and "signature" are required',
+                data: {},
+            });
+        }
+
+        // Get kaprodi's public key from database
+        const kaprodiUser = await prisma.user.findUnique({
+            where: { nim_nip: req.user.nim_nip },
+        });
+
+        if (!kaprodiUser) {
+            return res.status(400).json({
+                status: "error",
+                message: "Kaprodi user not found",
+                data: {},
+            });
+        }
+
+        // Check if signature already exists for this nim
+        const existingSignature = await prisma.signature.findUnique({
+            where: { nim },
+        });
+
+        let resultSignature;
+        if (existingSignature) {
+            // Update existing signature
+            resultSignature = await prisma.signature.update({
+                where: { nim },
+                data: { 
+                    signature,
+                    kaprodiPublicKey: kaprodiUser.rsaPublicKey 
+                },
+            });
+        } else {
+            // Create new signature
+            resultSignature = await prisma.signature.create({
+                data: { 
+                    nim, 
+                    signature,
+                    kaprodiPublicKey: kaprodiUser.rsaPublicKey 
+                },
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: existingSignature ? "Signature updated successfully" : "Signature created successfully",
+            data: resultSignature
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: "error",
+            message: process.env.DEBUG ? err.message : "Internal server error",
+            data: {},
+        });
+    }
+};
+
+const list_signature = async (req, res) => {
+    try {
+        const signatures = await prisma.signature.findMany();
+        
+        res.status(200).json({
+            status: "success",
+            message: "Signatures retrieved successfully",
+            data: signatures
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: "error",
+            message: process.env.DEBUG ? err.message : "Internal server error",
+            data: {},
+        });
+    }
+};
+
 module.exports = {
     add_nilai,
     decrypt_nilai,
@@ -692,4 +882,6 @@ module.exports = {
     request_list,
     request_approve,
     request_show,
+    sign_nilai,
+    list_signature
 };

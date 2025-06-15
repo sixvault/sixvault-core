@@ -112,6 +112,15 @@ model SelfKey {
   @@unique([daftar_nilai_id, user_nim_nip])
 }
 
+model Signature {
+  id                    Int         @id @default(autoincrement())
+  nim                   String      @unique
+  signature             String
+  kaprodiPublicKey      String
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
+}
+
 enum UserType {
   mahasiswa
   dosen_wali

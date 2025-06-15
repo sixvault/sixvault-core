@@ -75,3 +75,4 @@ Thumbs.db
 
 .ssh/
 /app/generated/prisma
+/app/domains/transcript/temp

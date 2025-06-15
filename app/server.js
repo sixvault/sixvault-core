@@ -37,17 +37,11 @@ app.use("/matakuliah", mkRouter);
 const nilaiRouter = require("./domains/nilai/nilai.router");
 app.use("/nilai", nilaiRouter);
 
-// const serviceRouter = require('./domains/services/services.router');
-// app.use('/service', serviceRouter);
+const transcriptRouter = require("./domains/transcript/transcript.router");
+app.use("/transcript", transcriptRouter);
 
-app.get("/protected", verifyAccessToken, (req, res) => {
-    console.log(req.user);
-    res.status(200).json({
-        status: "success",
-        message: "Protected route",
-        data: req.user,
-    });
-});
+const kaprodiRouter = require("./domains/kaprodi/kaprodi.router");
+app.use("/kaprodi", kaprodiRouter);
 
 app.get("/", function (req, res) {
     res.sendFile(path.join(__dirname, "templates/pages/index.html"));

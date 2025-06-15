@@ -16,12 +16,16 @@
   "license": "MIT",
   "description": "Sixvault is a secure, role-based academic transcript management system that integrates multi-cryptographic techniques—including AES encryption, RSA digital signatures, and Shamir's Secret Sharing—to protect the confidentiality, integrity, and authenticity of student data in a controlled, collaborative environment.",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.828.0",
     "@prisma/client": "^6.9.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "node-cloudflare-r2": "^0.4.2",
+    "node-latex": "^3.1.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
