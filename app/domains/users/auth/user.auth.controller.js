@@ -10,13 +10,22 @@ const crypto = require("crypto");
 
 const register = async (req, res) => {
     try {
-        const { nim_nip, type, prodi, rsaPublicKey, nama } = req.body;
+        const { nim_nip, type, prodi, rsaPublicKey, nama, nim_nip_dosen_wali } = req.body;
 
         if (!nim_nip || !type || !prodi || !rsaPublicKey || !nama) {
             return res.status(400).json({
                 status: "error",
                 message:
                     'Parameter "nim_nip", "type", "prodi", "rsaPublicKey", and "nama" required',
+                data: {},
+            });
+        }
+
+        // Check if nim_nip_dosen_wali is required for mahasiswa
+        if (type === "mahasiswa" && !nim_nip_dosen_wali) {
+            return res.status(400).json({
+                status: "error",
+                message: 'Parameter "nim_nip_dosen_wali" required for mahasiswa registration',
                 data: {},
             });
         }
@@ -41,6 +50,34 @@ const register = async (req, res) => {
                     'Parameter "prodi" must be "teknik_informatika" or "sistem_dan_teknologi_informasi"',
                 data: {},
             });
+        }
+
+        // Validate dosen_wali exists if registering as mahasiswa
+        if (type === "mahasiswa") {
+            const dosenWaliUser = await prisma.user.findUnique({
+                where: { nim_nip: nim_nip_dosen_wali },
+            });
+
+            if (!dosenWaliUser || dosenWaliUser.type !== "dosen_wali") {
+                return res.status(400).json({
+                    status: "error",
+                    message: process.env.DEBUG
+                        ? "Invalid dosen_wali nim_nip or user is not a dosen_wali"
+                        : "Bad Request",
+                    data: {},
+                });
+            }
+
+            // Check if dosen_wali and mahasiswa are from the same prodi
+            if (dosenWaliUser.prodi !== prodi) {
+                return res.status(400).json({
+                    status: "error",
+                    message: process.env.DEBUG
+                        ? "Dosen wali and mahasiswa must be from the same program study"
+                        : "Bad Request",
+                    data: {},
+                });
+            }
         }
 
         const existingUser = await prisma.user.findUnique({
@@ -74,6 +111,7 @@ const register = async (req, res) => {
                 newUser = await prisma.mahasiswa.create({
                     data: {
                         nim_nip,
+                        nim_nip_dosen_wali,
                     },
                     include: {
                         user: true,

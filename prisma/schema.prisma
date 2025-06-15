@@ -1,133 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-    id              Int         @id @default(autoincrement())
-    nim_nip         String      @unique
-    nama            String
-    rsaPublicKey    String      @db.Text
-    type            UserType
-    prodi           ProdiType
-    createdAt       DateTime    @default(now())
-    updatedAt       DateTime    @updatedAt
-    mahasiswa       Mahasiswa?  @relation("UserToMahasiswa")
-    dosenWali       DosenWali?  @relation("UserToDosenWali")
-    kaprodi         Kaprodi?    @relation("UserToKaprodi")
+  id           Int        @id @default(autoincrement())
+  nim_nip      String     @unique
+  nama         String
+  rsaPublicKey String
+  type         UserType
+  prodi        ProdiType
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  dosenWali    DosenWali? @relation("UserToDosenWali")
+  kaprodi      Kaprodi?   @relation("UserToKaprodi")
+  mahasiswa    Mahasiswa? @relation("UserToMahasiswa")
 }
 
 model Mahasiswa {
-    id          Int         @id @default(autoincrement())
-    nim_nip     String      @unique
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
-    user        User?       @relation("UserToMahasiswa", fields: [nim_nip], references: [nim_nip])
+  id                 Int       @id @default(autoincrement())
+  nim_nip            String    @unique
+  nim_nip_dosen_wali String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  dosenWali          DosenWali @relation("MahasiswaToDosenWali", fields: [nim_nip_dosen_wali], references: [nim_nip])
+  user               User      @relation("UserToMahasiswa", fields: [nim_nip], references: [nim_nip])
 }
 
 model DosenWali {
-    id          Int         @id @default(autoincrement())
-    nim_nip     String      @unique
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
-    user        User?       @relation("UserToDosenWali", fields: [nim_nip], references: [nim_nip])
+  id        Int         @id @default(autoincrement())
+  nim_nip   String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation("UserToDosenWali", fields: [nim_nip], references: [nim_nip])
+  mahasiswa Mahasiswa[] @relation("MahasiswaToDosenWali")
 }
 
 model Kaprodi {
-    id          Int         @id @default(autoincrement())
-    nim_nip     String      @unique
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
-    user        User?       @relation("UserToKaprodi", fields: [nim_nip], references: [nim_nip])
+  id        Int      @id @default(autoincrement())
+  nim_nip   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserToKaprodi", fields: [nim_nip], references: [nim_nip])
 }
 
 model MataKuliah {
-    id          Int         @id @default(autoincrement())
-    kode        String      @unique
-    matakuliah  String
-    sks         Int
+  id         Int    @id @default(autoincrement())
+  kode       String @unique
+  matakuliah String
+  sks        Int
+  prodi      ProdiType
 }
 
 model DaftarNilai {
-  id              Int          @id @default(autoincrement())
-  nim             String
-  kode            String       // encrypted
-  nama            String
-  nip_dosen       String
-  nilai           String
-
-  shares          Share[]
-  self_key        SelfKey?
+  id           Int          @id @default(autoincrement())
+  nim          String
+  kode         String
+  nama         String
+  nip_dosen    String
+  nilai        String
+  key_requests KeyRequest[]
+  self_keys    SelfKey[]
+  shares       Share[]
 }
 
 model Share {
-  id              Int          @id @default(autoincrement())
+  id              Int         @id @default(autoincrement())
   daftar_nilai_id Int
-  nip             String       // Teacher NIP
+  nip             String
   share_index     Int
   share_value     String
   is_advisor      Boolean
-
-  daftar_nilai    DaftarNilai  @relation(fields: [daftar_nilai_id], references: [id])
+  daftar_nilai    DaftarNilai @relation(fields: [daftar_nilai_id], references: [id])
 }
 
 model KeyRequest {
-  id              Int          @id @default(autoincrement())
-  nim             String
-  requester_nip   String
-  status          String       // "pending", "approved", etc.
-  created_at      DateTime     @default(now())
-
-  approvals       Approval[]
+  id            Int          @id @default(autoincrement())
+  nim           String
+  requester_nip String
+  status        String
+  created_at    DateTime     @default(now())
+  daftarNilaiId Int?
+  approvals     Approval[]
+  DaftarNilai   DaftarNilai? @relation(fields: [daftarNilaiId], references: [id])
 
   @@unique([nim, requester_nip])
 }
 
 model Approval {
-  id              Int          @id @default(autoincrement())
-  request_id      Int
-  nim             String
-  nip             String
-  requester_nip   String
-  approved        Boolean
-  approved_at     DateTime     @default(now())
+  id            Int        @id @default(autoincrement())
+  request_id    Int
+  nim           String
+  nip           String
+  requester_nip String
+  approved      Boolean
+  approved_at   DateTime   @default(now())
+  key_request   KeyRequest @relation(fields: [request_id], references: [id])
 
-  key_request     KeyRequest   @relation(fields: [request_id], references: [id])
-  @@unique([nim,requester_nip,nip])
+  @@unique([nim, requester_nip, nip])
 }
 
 model SelfKey {
-  id                    Int          @id @default(autoincrement())
+  id                    Int         @id @default(autoincrement())
   daftar_nilai_id       Int
-  rsa_encrypted_aes_key String       @db.Text
-  created_at            DateTime     @default(now())
+  user_nim_nip          String
+  rsa_encrypted_aes_key String
+  created_at            DateTime    @default(now())
+  daftar_nilai          DaftarNilai @relation(fields: [daftar_nilai_id], references: [id])
 
-  daftar_nilai          DaftarNilai  @relation(fields: [daftar_nilai_id], references: [id])
-
-  @@unique([daftar_nilai_id])
+  @@unique([daftar_nilai_id, user_nim_nip])
 }
 
 enum UserType {
-    mahasiswa
-    dosen_wali
-    kaprodi
-    admin
+  mahasiswa
+  dosen_wali
+  kaprodi
+  admin
 }
 
 enum ProdiType {
-    teknik_informatika
-    sistem_dan_teknologi_informasi
+  teknik_informatika
+  sistem_dan_teknologi_informasi
 }
 
 enum NilaiType {
-    A
-    AB
-    B
-    BC
-    C
-    D
+  A
+  AB
+  B
+  BC
+  C
+  D
 }
