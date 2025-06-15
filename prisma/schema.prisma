@@ -63,7 +63,6 @@ model DaftarNilai {
   nama         String
   nip_dosen    String
   nilai        String
-  key_requests KeyRequest[]
   self_keys    SelfKey[]
   shares       Share[]
 }
@@ -84,9 +83,7 @@ model KeyRequest {
   requester_nip String
   status        String
   created_at    DateTime     @default(now())
-  daftarNilaiId Int?
   approvals     Approval[]
-  DaftarNilai   DaftarNilai? @relation(fields: [daftarNilaiId], references: [id])
 
   @@unique([nim, requester_nip])
 }

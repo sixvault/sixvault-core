@@ -60,18 +60,18 @@ const add_nilai = async (req, res) => {
 
             // Check if mahasiswa exists and if the authenticated dosen_wali is their advisor
             const mahasiswa = await prisma.mahasiswa.findFirst({
-                where: { 
+                where: {
                     nim_nip: nim,
-                    nim_nip_dosen_wali: req.user.nim_nip
+                    nim_nip_dosen_wali: req.user.nim_nip,
                 },
                 include: {
                     user: true,
                     dosenWali: {
                         include: {
-                            user: true
-                        }
-                    }
-                }
+                            user: true,
+                        },
+                    },
+                },
             });
 
             if (!mahasiswa) {
@@ -116,34 +116,43 @@ const add_nilai = async (req, res) => {
 
             // Create SelfKey for mahasiswa, dosen_wali, and kaprodi
             const usersToCreateSelfKey = [
-                { nim_nip: mahasiswa.user.nim_nip, rsaPublicKey: mahasiswa.user.rsaPublicKey }, // mahasiswa
-                { nim_nip: mahasiswa.dosenWali.user.nim_nip, rsaPublicKey: mahasiswa.dosenWali.user.rsaPublicKey }, // dosen_wali
+                {
+                    nim_nip: mahasiswa.user.nim_nip,
+                    rsaPublicKey: mahasiswa.user.rsaPublicKey,
+                }, // mahasiswa
+                {
+                    nim_nip: mahasiswa.dosenWali.user.nim_nip,
+                    rsaPublicKey: mahasiswa.dosenWali.user.rsaPublicKey,
+                }, // dosen_wali
             ];
 
             // Find kaprodi of the same prodi
             const kaprodi = await prisma.kaprodi.findFirst({
                 include: {
-                    user: true
+                    user: true,
                 },
                 where: {
                     user: {
-                        prodi: mahasiswa.user.prodi
-                    }
-                }
+                        prodi: mahasiswa.user.prodi,
+                    },
+                },
             });
 
             if (kaprodi) {
-                usersToCreateSelfKey.push({ 
-                    nim_nip: kaprodi.user.nim_nip, 
-                    rsaPublicKey: kaprodi.user.rsaPublicKey 
+                usersToCreateSelfKey.push({
+                    nim_nip: kaprodi.user.nim_nip,
+                    rsaPublicKey: kaprodi.user.rsaPublicKey,
                 }); // kaprodi
             }
 
             // Create SelfKey for each user
             for (const userInfo of usersToCreateSelfKey) {
                 if (userInfo.rsaPublicKey) {
-                    const rsaEncryptedAesKey = RSA.encrypt(keyHex, userInfo.rsaPublicKey);
-                    
+                    const rsaEncryptedAesKey = RSA.encrypt(
+                        keyHex,
+                        userInfo.rsaPublicKey,
+                    );
+
                     await prisma.selfKey.create({
                         data: {
                             daftar_nilai_id: daftarNilai.id,
@@ -163,7 +172,8 @@ const add_nilai = async (req, res) => {
                         nip: dosen.nim_nip,
                         share_index: Number(shares[idx][0]),
                         share_value: shares[idx][1].toString(),
-                        is_advisor: dosen.nim_nip === mahasiswa.nim_nip_dosen_wali
+                        is_advisor:
+                            dosen.nim_nip === mahasiswa.nim_nip_dosen_wali,
                     },
                 }),
             );
@@ -199,7 +209,10 @@ const view_nilai = async (req, res) => {
         let errorMessage = "Unauthorized to view this data";
 
         // Case 1: If authenticated user is the mahasiswa themselves
-        if (authenticatedUser.nim_nip === nim_nip && authenticatedUser.type === "mahasiswa") {
+        if (
+            authenticatedUser.nim_nip === nim_nip &&
+            authenticatedUser.type === "mahasiswa"
+        ) {
             hasPermission = true;
         }
         // Case 2: If authenticated user is dosen_wali of the mahasiswa
@@ -207,8 +220,8 @@ const view_nilai = async (req, res) => {
             const mahasiswa = await prisma.mahasiswa.findFirst({
                 where: {
                     nim_nip: nim_nip,
-                    nim_nip_dosen_wali: authenticatedUser.nim_nip
-                }
+                    nim_nip_dosen_wali: authenticatedUser.nim_nip,
+                },
             });
             if (mahasiswa) {
                 hasPermission = true;
@@ -219,8 +232,8 @@ const view_nilai = async (req, res) => {
             const mahasiswa = await prisma.mahasiswa.findFirst({
                 where: { nim_nip: nim_nip },
                 include: {
-                    user: true
-                }
+                    user: true,
+                },
             });
             if (mahasiswa && mahasiswa.user.prodi === authenticatedUser.prodi) {
                 hasPermission = true;
@@ -230,9 +243,7 @@ const view_nilai = async (req, res) => {
         if (!hasPermission) {
             return res.status(403).json({
                 status: "error",
-                message: process.env.DEBUG
-                    ? errorMessage
-                    : "Unauthorized",
+                message: process.env.DEBUG ? errorMessage : "Unauthorized",
                 data: {},
             });
         }
@@ -259,8 +270,8 @@ const view_nilai = async (req, res) => {
             include: {
                 self_keys: {
                     where: {
-                        user_nim_nip: authenticatedUser.nim_nip
-                    }
+                        user_nim_nip: authenticatedUser.nim_nip,
+                    },
                 },
             },
         });
@@ -278,10 +289,12 @@ const view_nilai = async (req, res) => {
             // Get the RSA encrypted AES key that was encrypted with the authenticated user's public key
             // This ensures:
             // - If viewer is mahasiswa: returns key encrypted with mahasiswa's public key
-            // - If viewer is dosen_wali: returns key encrypted with dosen_wali's public key  
+            // - If viewer is dosen_wali: returns key encrypted with dosen_wali's public key
             // - If viewer is kaprodi: returns key encrypted with kaprodi's public key
-            const userSpecificSelfKey = record.self_keys.find(key => key.user_nim_nip === authenticatedUser.nim_nip);
-            
+            const userSpecificSelfKey = record.self_keys.find(
+                (key) => key.user_nim_nip === authenticatedUser.nim_nip,
+            );
+
             return {
                 id: record.id,
                 nim: record.nim,
@@ -291,7 +304,9 @@ const view_nilai = async (req, res) => {
                     nama: record.nama,
                     nilai: record.nilai,
                 },
-                rsa_encrypted_aes_key: userSpecificSelfKey ? userSpecificSelfKey.rsa_encrypted_aes_key : null,
+                rsa_encrypted_aes_key: userSpecificSelfKey
+                    ? userSpecificSelfKey.rsa_encrypted_aes_key
+                    : null,
             };
         });
 
@@ -389,7 +404,6 @@ const request_list = async (req, res) => {
         where: { status: "pending" },
         include: {
             approvals: true,
-            DaftarNilai: true,
         },
     });
 
@@ -416,12 +430,12 @@ const request_approve = async (req, res) => {
         // Search for spesific request
 
         const request_key = await prisma.keyRequest.findUnique({
-            where: { 
-                nim_requester_nip: { 
-                    nim, 
-                    requester_nip 
-                } 
-            }
+            where: {
+                nim_requester_nip: {
+                    nim,
+                    requester_nip,
+                },
+            },
         });
 
         if (!request_key) {
@@ -480,19 +494,29 @@ const request_approve = async (req, res) => {
 };
 
 const request_show = async (req, res) => {
-    const { teacher_nip } = req.query;
+    const { requester_nip } = req.query;
 
-    if (!teacher_nip) {
-        return res.status(400).json({ error: "Missing teacher_nip in query" });
+    const existingReq = await prisma.keyRequest.findMany({
+        where: {
+            requester_nip,
+        },
+    });
+
+    if (!existingReq || existingReq.length === 0) {
+        return res.status(400).json({
+            status: "error",
+            message: process.env.DEBUG
+                ? "Teacher hasn't made any request"
+                : "Invalid Request",
+        });
     }
 
     try {
         const requests = await prisma.keyRequest.findMany({
             where: {
-                requester_nip: teacher_nip,
+                requester_nip,
             },
             include: {
-                DaftarNilai: true,
                 approvals: true,
             },
             orderBy: {
@@ -502,84 +526,117 @@ const request_show = async (req, res) => {
 
         const result = [];
 
-        for (const req of requests) {
-            const { status, approvals, DaftarNilai } = req;
+        for (const request of requests) {
+            const { status, approvals, nim } = request;
 
             let includeNilai = false;
             let decryptedData = null;
+            let daftarNilaiEntry = null;
 
-            if (status === "approved" && DaftarNilai) {
-                const dosenWaliNip = DaftarNilai.nip_dosen;
+            const mahasiswa = await prisma.mahasiswa.findFirst({
+                where: { nim_nip: nim },
+            });
 
-                // ✅ Check if dosen wali has approved
+            console.log("Entry: ", request);
+
+            if (status !== "approved") {
+                return res.status(403).json({
+                    status: "error",
+                    message:
+                        "Access denied. Request not approved by other teachers",
+                });
+            }
+
+            if (status === "approved") {
                 const waliApproved = approvals.some(
                     (a) =>
-                        a.nip === dosenWaliNip && a.approved === true,
+                        a.nip === mahasiswa?.nim_nip_dosen_wali &&
+                        a.approved === true,
                 );
 
-                // ✅ Get all NIPs of teachers who approved
+                console.log(waliApproved);
+                console.log(mahasiswa.nim_nip_dosen_wali);
+                if (!waliApproved) {
+                    return res.status(403).json({
+                        status: "error",
+                        message:
+                            "Access denied. Request not approved by dosen wali",
+                    });
+                }
+
                 const approvedTeacherNips = approvals
                     .filter((a) => a.approved)
                     .map((a) => a.nip);
 
-                // ✅ Fetch shares for only those teachers
-                const shares = await prisma.share.findMany({
+                const allNilai = await prisma.daftarNilai.findMany({
                     where: {
-                        nip: { in: approvedTeacherNips },
-                        daftar_nilai_id: DaftarNilai.id,
+                        nim: nim,
+                        nip_dosen: mahasiswa.nim_nip_dosen_wali,
+                    },
+                    include: {
+                        shares: {
+                            where: {
+                                nip: { in: approvedTeacherNips },
+                            },
+                        },
                     },
                 });
 
-                console.log("Shares: ", shares);
+                for (const n of allNilai) {
+                    if (waliApproved && n.shares.length >= 3) {
+                        try {
+                            const formattedShares = n.shares.map((s) => [
+                                BigInt(s.share_index),
+                                BigInt(s.share_value),
+                            ]);
 
-                console.log(approvedTeacherNips);
+                            console.log("Shares: ", n.shares);
 
-                if (waliApproved && shares.length >= 3) {
-                    try {
-                        const formattedShares = shares.map((s) => [
-                            BigInt(s.share_index),
-                            BigInt(s.share_value),
-                        ]);
+                            const aesKey =
+                                shamir.reconstructSecret(formattedShares);
+                            const aesKeyHex = aesKey
+                                .toString(16)
+                                .padStart(32, "0");
 
-                        const aesKey =
-                            shamir.reconstructSecret(formattedShares);
-                        const aesKeyHex = aesKey.toString(16).padStart(32, "0");
+                            console.log("Key: ", aesKey);
+                            console.log("Key(hex): ", aesKeyHex);
 
-                        decryptedData = {
-                            nim: DaftarNilai.nim,
-                            kode: aes.decrypt(DaftarNilai.kode, aesKeyHex),
-                            nama: aes.decrypt(DaftarNilai.nama, aesKeyHex),
-                            nilai: aes.decrypt(DaftarNilai.nilai, aesKeyHex),
-                        };
+                            decryptedData = {
+                                nim: n.nim,
+                                kode: aes.decrypt(n.kode, aesKeyHex),
+                                nama: aes.decrypt(n.nama, aesKeyHex),
+                                nilai: aes.decrypt(n.nilai, aesKeyHex),
+                            };
 
-                        console.log("Formatted shares:", formattedShares);
-                        console.log("Reconstructed AES key:", aesKeyHex);
-                        console.log("Data:", decryptedData);
+                            console.log("Decrypted: ", decryptedData);
 
-                        includeNilai = true;
-                    } catch (decryptionError) {
-                        console.warn(
-                            "Failed to decrypt for request ID",
-                            req.id,
-                        );
+                            includeNilai = true;
+                            daftarNilaiEntry = n;
+                            break; // exit after first valid decryption
+                        } catch (decryptionError) {
+                            console.warn(
+                                "Failed to decrypt for request ID",
+                                request.id,
+                            );
+                        }
                     }
                 }
             }
 
             result.push({
-                key_request_id: req.id,
-                daftar_nilai_id: req.daftarNilaiId,
-                status: req.status,
-                created_at: req.created_at,
+                key_request_id: request.id,
+                daftar_nilai_id: daftarNilaiEntry?.id || null,
+                status: request.status,
+                created_at: request.created_at,
                 approvals_count: approvals.filter((a) => a.approved).length,
                 shares: approvals.map((a) => ({
                     teacher_nip: a.nip,
                     approved: a.approved,
                     approved_at: a.approved_at,
                 })),
-                daftar_nilai: DaftarNilai
+                daftar_nilai: daftarNilaiEntry
                     ? {
-                          ...DaftarNilai,
+                          ...daftarNilaiEntry,
                           decrypted_data: includeNilai ? decryptedData : null,
                       }
                     : null,

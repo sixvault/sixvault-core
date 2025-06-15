@@ -309,6 +309,175 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /nilai/request/approve:
+    post:
+      summary: Approve a key request
+      tags:
+        - Nilai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nim
+                - requester_nip
+                - nip
+              properties:
+                nim:
+                  type: string
+                  example: "231511001"
+                requester_nip:
+                  type: string
+                  example: "18222063"
+                nip:
+                  type: string
+                  example: "18222060"
+      responses:
+        '200':
+          description: Approval recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  approval:
+                    type: object
+        '400':
+          description: Bad request or already approved
+        '403':
+          description: Unauthorized access
+        '500':
+          description: Internal server error
+
+
+  /nilai/request/show:
+    get:
+      summary: Get all requests made by a requester
+      tags:
+        - Nilai
+      parameters:
+        - in: query
+          name: requester_nip
+          required: true
+          schema:
+            type: string
+            example: "18222063"
+      responses:
+        '200':
+          description: List of requests with approvals and decrypted data if available
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    key_request_id:
+                      type: string
+                    daftar_nilai_id:
+                      type: string
+                      nullable: true
+                    status:
+                      type: string
+                    created_at:
+                      type: string
+                      format: date-time
+                    approvals_count:
+                      type: integer
+                    shares:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          teacher_nip:
+                            type: string
+                          approved:
+                            type: boolean
+                          approved_at:
+                            type: string
+                            format: date-time
+                    daftar_nilai:
+                      type: object
+                      nullable: true
+                      properties:
+                        decrypted_data:
+                          type: object
+                          nullable: true
+                          properties:
+                            nim:
+                              type: string
+                            kode:
+                              type: string
+                            nama:
+                              type: string
+                            nilai:
+                              type: string
+        '400':
+          description: Teacher hasn't made any request
+        '403':
+          description: Access denied (not enough approvals or not approved by dosen wali)
+        '500':
+          description: Internal server error
+
+  /nilai/request/list:
+    get:
+      tags:
+        - Nilai
+      summary: List all pending key requests
+      responses:
+        '200':
+          description: List of pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KeyRequestWithApprovals'
+
+  /nilai/request:
+    post:
+      summary: Create a request to access nilai
+      tags:
+        - Nilai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nim
+                - requester_nip
+              properties:
+                nim:
+                  type: string
+                  example: "231511001"
+                requester_nip:
+                  type: string
+                  example: "18222063"
+      responses:
+        '200':
+          description: Request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  nim:
+                    type: string
+                  requester_nip:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Missing parameters or request already exists
+
   /nilai/add:
     post:
       summary: Add and encrypt daftar nilai
@@ -814,6 +983,49 @@ paths:
 
 components:
   schemas:
+    Approval:
+      type: object
+      properties:
+        id:
+          type: integer
+        request_id:
+          type: integer
+        nim:
+          type: string
+        nip:
+          type: string
+        requester_nip:
+          type: string
+        approved:
+          type: boolean
+        approved_at:
+          type: string
+          format: date-time
+
+    KeyRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        nim:
+          type: string
+        requester_nip:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    KeyRequestWithApprovals:
+      allOf:
+        - $ref: '#/components/schemas/KeyRequest'
+        - type: object
+          properties:
+            approvals:
+              type: array
+              items:
+                $ref: '#/components/schemas/Approval'
     ErrorResponse:
       type: object
       properties:
