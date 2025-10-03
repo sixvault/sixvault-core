@@ -370,52 +370,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /nilai/request/approve:
-    post:
-      summary: Approve a key request
-      tags:
-        - Nilai
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - nim
-                - requester_nip
-                - nip
-              properties:
-                nim:
-                  type: string
-                  example: "231511001"
-                requester_nip:
-                  type: string
-                  example: "18222063"
-                nip:
-                  type: string
-                  example: "18222060"
-      responses:
-        '200':
-          description: Approval recorded
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  approval:
-                    type: object
-        '400':
-          description: Bad request or already approved
-        '403':
-          description: Unauthorized access
-        '500':
-          description: Internal server error
-
-
   /nilai/request/show:
     get:
       summary: Get all requests made by a requester
@@ -484,30 +438,6 @@ paths:
           description: Access denied (not enough approvals or not approved by dosen wali)
         '500':
           description: Internal server error
-
-  /nilai/request/list:
-    get:
-      tags:
-        - Nilai
-      summary: List all pending key requests
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: List of pending requests
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/KeyRequestWithApprovals'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /nilai/add:
     post:
       summary: Add and encrypt daftar nilai
@@ -1358,7 +1288,7 @@ paths:
                     type: array
                     items:
                       type: object
-                                              properties:
+                      properties:
                           id:
                             type: integer
                             example: 1
